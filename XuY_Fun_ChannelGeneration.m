@@ -8,7 +8,8 @@ function [gainChannel]=XuY_Fun_ChannelGeneration(~)
 % Modified	: 2014-11-29 12:44
 
 % Create and Modify Date and History :
-% -
+% -2015/1/5 
+%       把瑞利信道放在了循环里面，保证每次loop时，大小尺度衰落都是重新生成的
 
 % Error Case :
 % -
@@ -41,15 +42,6 @@ lossLargeScare=zeros(1,TOTAL_USER,LOOP);%大尺度信道衰减矩阵
 lossSmallScare=zeros(1,TOTAL_SUB,LOOP);%小尺度信道衰减矩阵
 gainChannel = zeros( TOTAL_USER, TOTAL_SUB, LOOP );%每个用户与基站间的信道增益
 
-%******************************************************
-%                小尺度度信道生成
-%******************************************************
-% 把瑞利信道单独拿出来生成，因为有时候需要研究小尺度信道的相关性
-for iSmall=1:LOOP
-    %瑞利信道损耗,转置后,矩阵为1*TOTAL_SUB
-    lossSmallScare(:,:,iSmall)=XuY_Fun_lossRayleigh(TOTAL_SUB,1)';
-end
-
 for iLoop = 1:LOOP
     %******************************************************
     %                用户撒点
@@ -77,17 +69,20 @@ for iLoop = 1:LOOP
     lossShadow = 8.*randn(1,TOTAL_USER);%阴影效应矩阵
     lossLargeScare(:,:,iLoop)=lossPath + lossShadow;
     lossLargeScare(:,:,iLoop) = 10.^(-lossLargeScare(:,:,iLoop)./10);%将对数还原
-
+    %******************************************************
+    %                小尺度度信道生成
+    %******************************************************
+    % 把瑞利信道单独拿出来生成，因为有时候需要研究小尺度信道的相关性
+    %瑞利信道损耗,转置后,矩阵为1*TOTAL_SUB
+    lossSmallScare(:,:,iLoop)=XuY_Fun_lossRayleigh(TOTAL_SUB,1)';
     %******************************************************
     %                大小信道合成
     %******************************************************
     % lossLargeScare=zeros(1,TOTAL_USER,LOOP);
     % lossSmallScare=zeros(1,TOTAL_SUB,LOOP);
     % gainChannel = zeros( TOTAL_USER, TOTAL_SUB, LOOP );
-    for iGain=1:LOOP
-        %前两公式计算出来的是对数，所以这里直接相加
-        gainChannel(:,:,iGain)=(lossLargeScare(:,:,iGain)'*lossSmallScare(:,:,iGain))./(N0*BAND_SUB);
-    end
+    % 前两公式计算出来的是对数，所以这里直接相加
+    gainChannel(:,:,iLoop)=(lossLargeScare(:,:,iGain)'*lossSmallScare(:,:,iGain))./(N0*BAND_SUB);
      
 end % for iLoop = 1:LOOP
 

@@ -6,7 +6,11 @@ function [ OP1_Step1_Output ] = XuY_Fun_StepOptimize1_Step1( OP1_Step1_Input )
 % Modified	: 2014-12-11 15:00
 
 % Create and Modify Date and History :
-% -
+% - 2015/1/15 
+%     - change revenue
+%       "tmpRev_3=t*powerUE" to "tmpRev_3=alpha_1*sum(sum(powerSub_Pn))"; 
+%     - delete parameter "t" 
+%     - add parameter "alpha_1"
 
 % Error Case :
 % -
@@ -26,43 +30,22 @@ TOTAL_MULTIGROUP=OP1_Step1_Input.TOTAL_MULTIGROUP;%多播组总数
 TOTAL_USER=OP1_Step1_Input.TOTAL_USER;%用户总数
 TOTAL_SUB=OP1_Step1_Input.TOTAL_SUB;%子载波总数
 BAND_SUB=OP1_Step1_Input.BAND_SUB;%子载波带宽，一般现在取0.3125MHz
-t=OP1_Step1_Input.t;%分式规划的参量，现在置为0，测试用
 gainChannel=OP1_Step1_Input.gainChannel;
+alpha_1=OP1_Step1_Input.alpha_1;
+% alpha_2=OP1_Step1_Input.alpha_2;
 
-%约束参数
+% 迭代参数
+scheduleSub_rho=OP1_Step1_Input.scheduleSub_rho;
+powerSub_Pn=OP1_Step1_Input.powerSub_Pn;
+
+% 约束参数
 MAX_POWER_Pth=OP1_Step1_Input.MAX_POWER_Pth;%功率约束 单位W
 
 %-----------------函数局部变量----------------------
 interestUM=rand(TOTAL_USER,TOTAL_MULTIGROUP);%用户对多播组兴趣矩阵
 punishBeta=10;%惩罚函数的系数
-powerUE=1*(1e-3);%用户端接收功耗，单位:W
-powerBS=1*(1e-1);%基站功耗，单位:W
-
-% --------------------------------------------
-%       初始子载波分配集合scheduleSub_rho
-% --------------------------------------------
-scheduleSub_rho=zeros(TOTAL_SUB,TOTAL_MULTIGROUP);
-for iScheduleSub=1:TOTAL_SUB
-    %利用随机序列保证每行只有一个1，即每个子载波只能被分配到一个多播组
-    index_rho=randperm(TOTAL_MULTIGROUP);
-    scheduleSub_rho(iScheduleSub,index_rho(1))=1;
-end
-
-% --------------------------------------------
-%               初始化子载波功率
-% --------------------------------------------
-powerSub_Pn=zeros(TOTAL_SUB,TOTAL_MULTIGROUP);
-tempPn=rand(TOTAL_SUB,1);
-%归一化后乘以总功率，保证每个子载波的功率之和等于总功率
-oneTempPn=MAX_POWER_Pth*tempPn./sum(tempPn(:));
-% 把每个子载波的功率对应到每个多播组中
-for iPnN=1:TOTAL_SUB
-    for iPnM=1:TOTAL_MULTIGROUP 
-        if scheduleSub_rho(iPnN,iPnM)==1
-            powerSub_Pn(iPnN,iPnM)=oneTempPn(iPnN,1);
-        end
-    end
-end
+% powerUE=1*(1e-3);%用户端接收功耗，单位:W
+% powerBS=1*(1e-1);%基站功耗，单位:W
 
 % --------------------------------------------
 %      初始化每个多播组集合中初始最差接收SINR
@@ -101,8 +84,9 @@ for iRevU=1:TOTAL_USER
         end
         %用户对接受业务不感兴趣的惩罚函数
         tmpRev_2=punishBeta*(1-interestUM(iRevU,iRevM));
-        %用户设备端固有功耗
-        tmpRev_3=t*powerUE;
+        %用户功耗
+        tmpRev_3=alpha_1*sum(sum(powerSub_Pn));
+        
         %收益=和速率-兴趣惩罚函数-设备固有功耗
         revenueUM(iRevU,iRevM)=tmpRev_1-tmpRev_2-tmpRev_3;
     end
@@ -124,11 +108,13 @@ pushUM_SUM=sum(pushUM,2);
 if revenueUM(maxRev_U,maxRev_M)>0
     % 如果该用户已经被分配过多播组业务了
     if pushUM_SUM(maxRev_U,1)==1
-        %把收益标记为零，防止重复选择
+        % 把收益标记为零，防止重复选择
+        % 换句话说，一个用户只能接收一个多播业务
         revenueUM(maxRev_U,maxRev_M)=0;
-    else
-      pushUM(maxRev_U,maxRev_M)=1;
-
+    else      
+        % 计算加入用户k*之前，多播组m*的总收益
+        revPrevious=sum(revenueUM(:,maxRev_M));
+        
         % 更新多播推送用户集合中最差接收 SINR
         % minSNR_gamma=(1e+9).*ones(TOTAL_SUB,TOTAL_MULTIGROUP);
             for iSNR_N=1:TOTAL_SUB
@@ -153,14 +139,25 @@ if revenueUM(maxRev_U,maxRev_M)>0
                     %用户对接受业务不感兴趣的惩罚函数
                     tmpRev_2=punishBeta*(1-interestUM(iRevU,iRevM));
                     %用户设备端固有功耗
-                    tmpRev_3=t*powerUE;
+                    tmpRev_3=alpha_1*sum(sum(powerSub_Pn));
                     %收益=和速率-兴趣惩罚函数-设备固有功耗
                     revenueUM(iRevU,iRevM)=tmpRev_1-tmpRev_2-tmpRev_3;
                 end
             end
         end
-        
+                       
     end % if pushUM(maxRev_U,maxRev_M)==1
+    
+    % 计算加入用户k*之后，多播组m*的总收益
+    revAfter=sum(revenueUM(:,maxRev_M));
+    
+    % 如果加入新用户拉低多播组SINR从而导致整个多播组的收益下降的话
+    % 那么不加入该新用户
+    if revAfter >= revPrevious
+        pushUM(maxRev_U,maxRev_M)=1;
+    else
+        pushUM(maxRev_U,maxRev_M)=0;
+    end
     
 end % if revenueUM(maxRev_U,maxRev_M)>0
 revenueUM(maxRev_U,maxRev_M)=0;

@@ -6,7 +6,8 @@ function [ OP1_Step2_Output ] = XuY_Fun_StepOptimize1_Step2( OP1_Step2_Input )
 % Modified	: 2014-12-1 13:44
 
 % Create and Modify Date and History :
-% -
+% - 2015/1/15 
+%     - replace parameter "t" with "alpha_1"
 
 % Error Case :
 % -
@@ -25,9 +26,10 @@ function [ OP1_Step2_Output ] = XuY_Fun_StepOptimize1_Step2( OP1_Step2_Input )
 TOTAL_MULTIGROUP=OP1_Step2_Input.TOTAL_MULTIGROUP;
 TOTAL_SUB=OP1_Step2_Input.TOTAL_SUB;
 omegaM=OP1_Step2_Input.omegaM;
-t=OP1_Step2_Input.t;
 BAND_SUB=OP1_Step2_Input.BAND_SUB;
 minSNR_gamma=OP1_Step2_Input.minSNR_gamma;
+alpha_1=OP1_Step2_Input.alpha_1;
+alpha_2=OP1_Step2_Input.alpha_2;
 
 %约束参数
 MAX_POWER_Pth=OP1_Step2_Input.MAX_POWER_Pth;
@@ -68,7 +70,7 @@ while isScheduleDone==0
             if isSubSchedule(iN)==0
                 % 子载波iN被分配到第iiM个多播组时的最优化功率
                 powerSub_Pn_Cal(1,iiM)=(mu(1,iiM)+omegaM(1,iiM))...
-                    *BAND_SUB./((t+lambda)*log(2))-1./minSNR_gamma(iN,iiM);
+                    *BAND_SUB./((alpha_1+lambda)*log(2))-1./minSNR_gamma(iN,iiM);
                 
                 % 功率取正数
                 powerSub_Pn_Cal(1,iiM)=max(powerSub_Pn_Cal(1,iiM),0);
@@ -76,7 +78,7 @@ while isScheduleDone==0
                 % 对应该功率值，所得到的D(n,m)值
                 funcD(1,iiM)=(mu(1,iiM)+omegaM(1,iiM))*BAND_SUB*...
                     log2(1+powerSub_Pn_Cal(1,iiM)*minSNR_gamma(iN,iiM))-...
-                    (t+lambda)*powerSub_Pn_Cal(1,iiM);
+                    (alpha_1+lambda)*powerSub_Pn_Cal(1,iiM);
             % 如果该子载波已经被分配
             else
                 % 给该子载波“临时”功率置零
