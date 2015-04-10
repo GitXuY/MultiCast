@@ -64,29 +64,31 @@ for iLoop = 1:LOOP
     %******************************************************
     % 信道考虑小尺度模型（瑞利信道），大尺度模型（自由空间路损和阴影效应）
     % lossLargeScare=zeros(1,TOTAL_USER,LOOP);%大尺度信道衰减矩阵
-
     lossPath = 17.4 + 37.6.*log10( abs(locUser) );%路径损耗矩阵
     lossShadow = 8.*randn(1,TOTAL_USER);%阴影效应矩阵
     lossLargeScare(:,:,iLoop)=lossPath + lossShadow;
     lossLargeScare(:,:,iLoop) = 10.^(-lossLargeScare(:,:,iLoop)./10);%将对数还原
-    %******************************************************
-    %                小尺度度信道生成
-    %******************************************************
-    % 把瑞利信道单独拿出来生成，因为有时候需要研究小尺度信道的相关性
-    %瑞利信道损耗,转置后,矩阵为1*TOTAL_SUB
-    lossSmallScare(:,:,iLoop)=XuY_Fun_lossRayleigh(TOTAL_SUB,1)';
+    
     %******************************************************
     %                大小信道合成
     %******************************************************
     % lossLargeScare=zeros(1,TOTAL_USER,LOOP);
     % lossSmallScare=zeros(1,TOTAL_SUB,LOOP);
     % gainChannel = zeros( TOTAL_USER, TOTAL_SUB, LOOP );
-    % 前两公式计算出来的是对数，所以这里直接相加
-    gainChannel(:,:,iLoop)=(lossLargeScare(:,:,iGain)'*lossSmallScare(:,:,iGain))./(N0*BAND_SUB);
+    for iiUser=1:TOTAL_USER
+        %******************************************************
+        %                小尺度度信道生成
+        %******************************************************
+        % 把瑞利信道单独拿出来生成，因为有时候需要研究小尺度信道的相关性
+        % 瑞利信道损耗,转置后,矩阵为1*TOTAL_SUB
+        lossSmallScare(:,:,iLoop)=XuY_Fun_lossRayleigh(TOTAL_SUB,1).^2';
+        gainChannel(iiUser,:,iLoop)=(lossLargeScare(1,iiUser,iLoop)'*...
+        lossSmallScare(:,:,iLoop))./(N0*BAND_SUB);
+    end
      
 end % for iLoop = 1:LOOP
 
-save gainChannel
+save gainChannel;
 
 end % Function
 

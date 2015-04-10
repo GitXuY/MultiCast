@@ -1,15 +1,12 @@
-function [ OP1_Step2_Output ] = XuY_Fun_StepOptimize1_Step2( OP1_Step2_Input )
-%XuY_Fun_StepOptimize1_Step2: Step2 of the StepOptimize1
-%   给定多播推送用户集合下，子载波与功率联合分配算法
+function [ Min_Output ] = XuY_Fun_UpperLimit_Min( Min_Input )
+%XuY_Fun_UpperLimit_Min: minimize the maximal objective function
+%   目标函数外部min迭代
 
 % Author	: XuY
-% Modified	: 2014-12-1 13:44
+% Modified	: 2015-1-10
 
 % Create and Modify Date and History :
-% - 2015/1/15 
-%     - replace parameter "t" with "alpha_1"
-% - 2015/4/3 
-%     - add if max(funcD)< 0
+% - 
 
 % Error Case :
 % -
@@ -25,17 +22,10 @@ function [ OP1_Step2_Output ] = XuY_Fun_StepOptimize1_Step2( OP1_Step2_Input )
 % *************************************************************************
 %-------------------输入参数------------------------
 % 场景参数
-TOTAL_MULTIGROUP=OP1_Step2_Input.TOTAL_MULTIGROUP;
-TOTAL_SUB=OP1_Step2_Input.TOTAL_SUB;
-omegaM=OP1_Step2_Input.omegaM;
-BAND_SUB=OP1_Step2_Input.BAND_SUB;
-minSNR_gamma=OP1_Step2_Input.minSNR_gamma;
-alpha_1=OP1_Step2_Input.alpha_1;
-alpha_2=OP1_Step2_Input.alpha_2;
-
-%约束参数
-MAX_POWER_Pth=OP1_Step2_Input.MAX_POWER_Pth;
-MIN_RATE_Rmin=OP1_Step2_Input.MIN_RATE_Rmin;
+TOTAL_MULTIGROUP=XuY_Fun_UpperLimit_Min.TOTAL_MULTIGROUP;%多播组总数
+TOTAL_USER=XuY_Fun_UpperLimit_Min.TOTAL_USER;%用户总数
+TOTAL_SUB=XuY_Fun_UpperLimit_Min.TOTAL_SUB;%子载波总数
+BAND_SUB=XuY_Fun_UpperLimit_Min.BAND_SUB;%子载波带宽，一般现在取0.3125MHz
 
 %-----------------函数局部变量----------------------
 %拉格朗日对偶乘子初始化
@@ -90,34 +80,30 @@ while isScheduleDone==0
             end % if isSubSchedule
         end % for iiM
         
-        if max(funcD)< 0
-            continue
-        else
-            % 对第n个子载波，计算该子载波被分配到哪一个多播组的时候
-            % 所得到的效益最大（D(n,m)取到最大）
-            bestMultiGroupForiN = find( funcD>=max(funcD) );
-
-            % 如果找到了两个以上的ms,即最大的有两个，那么随机选一个
-            if length(bestMultiGroupForiN) > 1
-                bestMultiGroupForiN...
-                                = ceil(length(bestMultiGroupForiN)*rand(1));
-            end
-
-            % 把该子载波分配给这个多播组
-            scheduleSub_rho(iN,bestMultiGroupForiN) = 1;
-
-            % 标明该子载波已经被分配出去，防止重复分配
-            isSubSchedule(1,iN)=1;
-
-            % 把该子载波在“临时”子载波功率矩阵中的值登记到子载波功率矩阵
-            powerSub_Pn(iN,bestMultiGroupForiN)...
-                                    = powerSub_Pn_Cal(1,bestMultiGroupForiN);
-
-            % 计算该子载波的速率
-            rateSub(iN,bestMultiGroupForiN)...
-                        =BAND_SUB*log2(1+powerSub_Pn(iN,bestMultiGroupForiN)...
-                                *minSNR_gamma(iN,bestMultiGroupForiN));
-        end %if max(funcD)< 0
+        % 对第n个子载波，计算该子载波被分配到哪一个多播组的时候
+        % 所得到的效益最大（D(n,m)取到最大）
+        bestMultiGroupForiN = find( funcD>=max(funcD) );
+        
+        % 如果找到了两个以上的ms,即最大的有两个，那么随机选一个
+        if length(bestMultiGroupForiN) > 1
+            bestMultiGroupForiN...
+                            = round(length(bestMultiGroupForiN*rand(1)));
+        end
+        
+        % 把该子载波分配给这个多播组
+        scheduleSub_rho(iN,bestMultiGroupForiN) = 1;
+        
+        % 标明该子载波已经被分配出去，防止重复分配
+        isSubSchedule(1,iN)=1;
+        
+        % 把该子载波在“临时”子载波功率矩阵中的值登记到子载波功率矩阵
+        powerSub_Pn(iN,bestMultiGroupForiN)...
+                                = powerSub_Pn_Cal(1,bestMultiGroupForiN);
+        
+        % 计算该子载波的速率
+        rateSub(iN,bestMultiGroupForiN)...
+                    =BAND_SUB*log2(1+powerSub_Pn(iN,bestMultiGroupForiN)...
+                            *minSNR_gamma(iN,bestMultiGroupForiN));
         
     end % for iN
     
@@ -270,5 +256,3 @@ OP1_Step2_Output.totalDualChange=totalDualChange;
 OP1_Step2_Output.isBelowDualChange=isBelowDualChange;
 
 end %Function
-
-

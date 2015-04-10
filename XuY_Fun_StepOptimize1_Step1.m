@@ -11,6 +11,8 @@ function [ OP1_Step1_Output ] = XuY_Fun_StepOptimize1_Step1( OP1_Step1_Input )
 %       "tmpRev_3=t*powerUE" to "tmpRev_3=alpha_1*sum(sum(powerSub_Pn))"; 
 %     - delete parameter "t" 
 %     - add parameter "alpha_1"
+% - 2015/4/3 
+%     - remove interestUM 
 
 % Error Case :
 % -
@@ -32,6 +34,9 @@ TOTAL_SUB=OP1_Step1_Input.TOTAL_SUB;%子载波总数
 BAND_SUB=OP1_Step1_Input.BAND_SUB;%子载波带宽，一般现在取0.3125MHz
 gainChannel=OP1_Step1_Input.gainChannel;
 alpha_1=OP1_Step1_Input.alpha_1;
+alpha_2=OP1_Step1_Input.alpha_2;
+xi=OP1_Step1_Input.xi;
+interestUM = OP1_Step1_Input.interestUM;
 % alpha_2=OP1_Step1_Input.alpha_2;
 
 % 迭代参数
@@ -42,7 +47,6 @@ powerSub_Pn=OP1_Step1_Input.powerSub_Pn;
 MAX_POWER_Pth=OP1_Step1_Input.MAX_POWER_Pth;%功率约束 单位W
 
 %-----------------函数局部变量----------------------
-interestUM=rand(TOTAL_USER,TOTAL_MULTIGROUP);%用户对多播组兴趣矩阵
 punishBeta=10;%惩罚函数的系数
 % powerUE=1*(1e-3);%用户端接收功耗，单位:W
 % powerBS=1*(1e-1);%基站功耗，单位:W
@@ -53,6 +57,7 @@ punishBeta=10;%惩罚函数的系数
 % 初始化的时候用一个很大的值，后面用户在迭代过程中加入集合时
 % 再根据加入的用户的SINR对集合进行更新；
 minSNR_gamma=(1e+9).*ones(TOTAL_SUB,TOTAL_MULTIGROUP);
+tmp_minSNR_gamma=(1e+9).*ones(TOTAL_SUB,TOTAL_MULTIGROUP);
 
 % --------------------------------------------
 %           初始化业务多播推送集合
@@ -122,7 +127,8 @@ if revenueUM(maxRev_U,maxRev_M)>0
                     minSNR_gamma(iSNR_N,maxRev_M)=gainChannel(maxRev_U,iSNR_N,1);
                 end
             end
-
+%此时不确定是否加入该用户，因而收益信息不能直接写入revenueUM，用临时变量来记录更新后的收益用于比较        
+    temp_revenueUM=zeros(TOTAL_USER,TOTAL_MULTIGROUP);
         % 更新收益矩阵
         for iRevU=1:TOTAL_USER
             for iRevM=1:TOTAL_MULTIGROUP
@@ -141,7 +147,7 @@ if revenueUM(maxRev_U,maxRev_M)>0
                     %用户设备端固有功耗
                     tmpRev_3=alpha_1*sum(sum(powerSub_Pn));
                     %收益=和速率-兴趣惩罚函数-设备固有功耗
-                    revenueUM(iRevU,iRevM)=tmpRev_1-tmpRev_2-tmpRev_3;
+                    temp_revenueUM(iRevU,iRevM)=tmpRev_1-tmpRev_2-tmpRev_3;
                 end
             end
         end
@@ -155,6 +161,8 @@ if revenueUM(maxRev_U,maxRev_M)>0
     % 那么不加入该新用户
     if revAfter >= revPrevious
         pushUM(maxRev_U,maxRev_M)=1;
+        %将更新后的收益信息写入收益矩阵revenueUM
+        revenueUM = temp_revenueUM;
     else
         pushUM(maxRev_U,maxRev_M)=0;
     end
@@ -173,9 +181,11 @@ revenueUM(maxRev_U,maxRev_M)=0;
 end % while
 
 % 生成多播组兴趣矩阵（omegaM）
-[ omegaM ] = XuY_Fun_omegaM( TOTAL_MULTIGROUP, TOTAL_USER, pushUM,interestUM );
+[ omegaM ] = XuY_Fun_omegaM( TOTAL_MULTIGROUP, TOTAL_USER, pushUM, interestUM, alpha_2, xi );
 
-% 输出参数结构体
+% *************************************************************************
+%                   输出参数结构体
+% *************************************************************************
 OP1_Step1_Output.omegaM=omegaM;
 OP1_Step1_Output.minSNR_gamma=minSNR_gamma;
 OP1_Step1_Output.pushUM=pushUM;

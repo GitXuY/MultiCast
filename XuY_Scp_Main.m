@@ -34,11 +34,45 @@ MIN_RATE_Rmin=1.5;% 最小发送速率约束 单位？
 
 alpha_1=1;%基站功耗对效用的权重
 alpha_2=1;%用户功耗对效用的权重
+xi=0.001;%表示用户没接收单位数据业务的额外功耗
+betaM=zeros(1,TOTAL_MULTIGROUP);% 由多播推送集合中用户不愿意接收该业务造成的收益损失
 % LOOP=10;%信道循环次
 
 %用户兴趣矩阵，用户对哪个多播组感兴趣
 interestUM=rand(TOTAL_USER,TOTAL_MULTIGROUP);
+% *************************************************************************
+%                         问题上限设计
+% *************************************************************************
+% 该方案的迭代环节分为两步:
+% (1) 目标函数外部min迭代: XuY_Fun_UpperLimit_Min;
+% 输入参数
+%   场景参数
+% XuY_Fun_UpperLimit_Min.TOTAL_MULTIGROUP=TOTAL_MULTIGROUP;%多播组总数
+% XuY_Fun_UpperLimit_Min.TOTAL_USER=TOTAL_USER;%用户总数
+% XuY_Fun_UpperLimit_Min.TOTAL_SUB=TOTAL_SUB;%子载波总数
+% XuY_Fun_UpperLimit_Min.BAND_SUB=BAND_SUB;%子载波带宽，一般现在取0.3125MHz
+% % 输出参数
+Min_Output.lambda=100;
+Min_Output.mu=0.1;
 
+% (2) 目标函数内部max迭代: XuY_Fun_UpperLimit_Max;
+% 输入参数
+%   场景参数
+Max_Input.TOTAL_MULTIGROUP  = TOTAL_MULTIGROUP;%多播组总数
+Max_Input.TOTAL_USER        = TOTAL_USER;%用户总数
+Max_Input.TOTAL_SUB         = TOTAL_SUB;%子载波总数
+Max_Input.BAND_SUB          = BAND_SUB;%子载波带宽，一般现在取0.3125MHz
+Max_Input.gainChannel       = gainChannel;
+Max_Input.interestUM        = interestUM;
+Max_Input.alpha_1           = alpha_1;
+Max_Input.alpha_2           = alpha_2;
+Max_Input.xi                = xi;
+Max_Input.betaM             = betaM;
+%   迭代参数
+Max_Input.lamda             = Min_Output.lambda;
+Max_Input.mu                = Min_Output.mu;
+
+% [ Max_Output ] = XuY_Fun_UpperLimit_Max( Max_Input );
 % *************************************************************************
 %                           分步优化方法1
 % *************************************************************************
@@ -82,6 +116,9 @@ OP1_Step1_Input.TOTAL_SUB=TOTAL_SUB;%子载波总数
 OP1_Step1_Input.BAND_SUB=BAND_SUB;%子载波带宽，一般现在取0.3125MHz
 OP1_Step1_Input.gainChannel=gainChannel;
 OP1_Step1_Input.alpha_1=alpha_1;
+OP1_Step1_Input.alpha_2=alpha_2;
+OP1_Step1_Input.xi=xi;
+OP1_Step1_Input.interestUM=interestUM;
 %   迭代参数
 OP1_Step1_Input.scheduleSub_rho=scheduleSub_rho;
 OP1_Step1_Input.powerSub_Pn=powerSub_Pn;
