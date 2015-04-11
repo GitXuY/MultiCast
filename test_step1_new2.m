@@ -24,7 +24,7 @@ interestUM=rand(TOTAL_USER,TOTAL_MULTIGROUP);
 % 功率约束 单位W
 MAX_POWER_Pth=1;
 % 最小发送速率约束 单位？
-MIN_RATE_Rmin=1.5;
+MIN_RATE_Rmin=15;
 % 由多播推送集合中用户不愿意接收该业务造成的收益损失
 betaM=10*ones(1,TOTAL_MULTIGROUP);
 % 收益矩阵
@@ -86,8 +86,11 @@ for iM=1:TOTAL_MULTIGROUP
             %  每个子载波上i2U的SNR比基准用户SNR大才能加入集合
             %--------------------------------------------------
             for iN=1:TOTAL_SUB
-            if i2U_average_SNR<iU_average_SNR
-                isAdd(1,i2U)=0;
+                if scheduleSub_rho(iN,iM)==1
+                    if gainChannel(i2U,iN,1)<gainChannel(criterionUser,iN,1)
+                        isAdd(1,i2U)=0;
+                   end
+                end
             end
             %--------------------------------------------------
             %           收益小于0的不能加入集合
@@ -118,7 +121,7 @@ for iM=1:TOTAL_MULTIGROUP
             for iN=1:TOTAL_SUB
                % 仅更新该多播组分配到的子载波
                if scheduleSub_rho(iN,iM)==1
-                   if minSNR_gamma(iN,iM)==0o
+                   if minSNR_gamma(iN,iM)==0
                       minSNR_gamma(iN,iM)=gainChannel(i2U,iN,1); 
                    elseif gainChannel(i2U,iN,1)<minSNR_gamma(iN,iM)
                         minSNR_gamma(iN,iM)=gainChannel(i2U,iN,1);
