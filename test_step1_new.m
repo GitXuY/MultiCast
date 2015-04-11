@@ -73,7 +73,6 @@ pushUM=zeros(TOTAL_USER,TOTAL_MULTIGROUP);
 %                迭代用户选择
 %******************************************************
 LOOP=3;
-m=0;
 for iM=1:TOTAL_MULTIGROUP
     %遍历多播业务组
     for iU=1:TOTAL_USER
@@ -129,23 +128,6 @@ for iM=1:TOTAL_MULTIGROUP
             end    
         end % for i2U=1:TOTAL_USER
         %--------------------------------------------------
-        %  加入新用户后更新多播推送用户集合中最差接收 SINR
-        %--------------------------------------------------
-        %如果加入了新用户
-        if isAdd(1,i2U)==1
-            % 遍历子载波
-            for iN=1:TOTAL_SUB
-               % 仅更新该多播组分配到的子载波
-               if scheduleSub_rho(iN,iM)==1
-                   if minSNR_gamma(iN,iM)==0o
-                      minSNR_gamma(iN,iM)=gainChannel(i2U,iN,1); 
-                   elseif gainChannel(i2U,iN,1)<minSNR_gamma(iN,iM)
-                        minSNR_gamma(iN,iM)=gainChannel(i2U,iN,1);
-                   end
-               end
-            end
-        end
-        %--------------------------------------------------
         %   iU用户充当基准用户时,最佳可选多播推送用户集合
         %--------------------------------------------------
         pushUUM(iU,:,iM)=isAdd(:);
@@ -174,6 +156,22 @@ for iM=1:TOTAL_MULTIGROUP
     
     [maxRev(1,iM), criterionUserM(1,iM)] = max(revenueUM(:,iM));
     pushUM(:,iM)=pushUUM(criterionUserM(1,iM),:,iM);
+    %--------------------------------------------------
+    %  更新多播推送用户集合中最差接收 SINR
+    %--------------------------------------------------
+    %如果加入了新用户
+    for iU=1:TOTAL_USER
+        if isAdd(1,iU)==1
+            % 遍历子载波
+            for iN=1:TOTAL_SUB
+               if minSNR_gamma(iN,iM)==0
+                  minSNR_gamma(iN,iM)=gainChannel(iU,iN,LOOP); 
+               elseif gainChannel(iU,iN,LOOP)<minSNR_gamma(iN,iM)
+                  minSNR_gamma(iN,iM)=gainChannel(iU,iN,LOOP);
+               end
+            end
+        end
+    end
     
 end
 % 生成多播组兴趣矩阵（omegaM）
