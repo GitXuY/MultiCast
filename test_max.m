@@ -9,7 +9,7 @@ TOTAL_USER=100;%用户总数
 TOTAL_SUB=64;%子载波总数
 BAND_SUB= 0.3125; %子载波带宽，一般现在取0.3125MHz
 MAX_POWER_Pth=1;%功率约束 单位W
-MIN_RATE_Rmin=1.5;% 最小发送速率约束 单位？
+MIN_RATE_Rmin=30;% 最小发送速率约束 单位？
 
 alpha_1=1;%基站功耗对效用的权重
 alpha_2=1;%用户功耗对效用的权重
@@ -31,8 +31,8 @@ userSet_Knm  = zeros(TOTAL_USER,TOTAL_MULTIGROUP,TOTAL_SUB);
 funcD=0;%D(n,m) 1*多播组数
 funcD_plus=0;
 % 优化变量
-betaM = TOTAL_MULTIGROUP .* betaM / TOTAL_SUB;
-betaMN = repmat(betaM',1,TOTAL_SUB);
+tmp_betaM = TOTAL_MULTIGROUP .* betaM / TOTAL_SUB;
+betaMN = repmat(tmp_betaM',1,TOTAL_SUB);
 % 记录多播组的收益
 revenueMN = zeros(TOTAL_MULTIGROUP, TOTAL_SUB);
 % 记录多播组的基准用户
@@ -58,17 +58,17 @@ powerM=zeros(1,TOTAL_MULTIGROUP);
 
 %-------------------迭代参数------------------------
 isScheduleDone=0;% 资源分配完成标志
-MAX_ITERATIONS=10;%最大迭代次数
+MAX_ITERATIONS=3000;%最大迭代次数
 timesIteration=1;%初始化迭代计数器
-
+while isScheduleDone~=1
 %迭代资源分配的大循环
-while isScheduleDone==0
 % *************************************************************************
-%                       阶段1：
+%     阶段1：假设子载波n 分配给业务m ，计算此时最佳的功分与推送用户集合
 % *************************************************************************
 for iSub=1:TOTAL_SUB
 % 内部 max 问题可以拆分为N 个子问题，其中第 n 个子问题负责子载波n 的业务选
 % 择、功分以及相应的多播推送用户选择
+if sum(scheduleSub_rho(iSub,:))==0
 
     for iMG=1:TOTAL_MULTIGROUP
     % 假设子载波n 分配给业务m ，计算此时最佳的功分与推送用户集合,遍历 M 种可能的
@@ -85,8 +85,8 @@ for iSub=1:TOTAL_SUB
             % =============================================================
             for iUser = 1: TOTAL_USER  
                 % 根据基准用户选出iMG的传输集合
-                if gainChannel(iUser,iSub,1) >= criterionSNR_UMN(iUserCSNR, iMG, iSub) 
-%                     && interestUM(iUser,iMG)-alpha_2*xi+mu(1,iMG) >= 0            
+                if gainChannel(iUser,iSub,1) >= criterionSNR_UMN(iUserCSNR, iMG, iSub)... 
+                     && interestUM(iUser,iMG)-alpha_2*xi+mu(1,iMG) >= 0            
                     userSet_Knm(iUser,iMG,iSub) = 1;
                 end  
             end 
@@ -97,7 +97,8 @@ for iSub=1:TOTAL_SUB
             temp_p2 = userSet_Knm(:,iMG,iSub).* temp_p1;
             temp_p2 = temp_p2 / 300; 
             powerSub_Pn(iSub)=(BAND_SUB * sum(temp_p2(:)))...
-            /(log(2)*(alpha_1+lambda))-1/criterionSNR_UMN(iUserCSNR, iMG, iSub);                                  
+            /(log(2)*(alpha_1+lambda))-1/criterionSNR_UMN(iUserCSNR, iMG, iSub);
+            powerSub_Pn(iSub)=max(powerSub_Pn(iSub),0);
             % =============================================================
             %       当基准用户为 iUserCSNR 时 多播组的传输收益
             % =============================================================
@@ -131,7 +132,7 @@ for iSub=1:TOTAL_SUB
                     =BAND_SUB*log2(1+powerSub_Pn(iSub)...
                             *criterionSNR_MN(bestMG(iSub), iSub));
     
-    
+end
 end % for iSub=1:TOTAL_SUB
         
     %计算每个多播组的和速率                    
@@ -149,13 +150,13 @@ end % for iSub=1:TOTAL_SUB
     % ====================================================
     %     （1）第一次迭代时使用初始化值来启动迭代过程
     % ====================================================
-    if timesIteration==1
+%     if timesIteration==1
         %Lambda的更新步长初始化
-        stepLambda_c1= 5*(1e-1);
+        stepLambda_c1= 5*(1e-1)/sqrt(timesIteration);
         
         %Mu的更新步长初始化
-        stepMU_c2 = 1*(1e-3);
-    end
+        stepMU_c2 = 1*(1e-3)/sqrt(timesIteration);
+%     end
     % ====================================================
     %      （2）lambda和mu的更新
     % ====================================================
@@ -182,14 +183,14 @@ end % for iSub=1:TOTAL_SUB
     % 条件1：
     %判断 [对偶变量变化 < 阈值]
     totalDualChange=0;%记录对偶变量每次变化比率之和
-    DualChangeThreshold = 5*(1e-5);%对偶变量变化比率之和的阈值
+    DualChangeThreshold = 1*(1e-3);%对偶变量变化比率之和的阈值
     
     for iDual=1:TOTAL_MULTIGROUP
-        if mu(1,iDual)>0
+%         if mu(1,iDual)>0
             %计算对偶变量每次变化比率之和
-            totalDualChange = totalDualChange+sum(abs( (lambda2-lambda)./(lambda)))...
-                +sum(abs( (mu2(1,iDual)-mu(1,iDual))./(mu(1,iDual))));
-        end
+            totalDualChange = totalDualChange+sum(abs( (lambda2-lambda)./(lambda+1*(1e-5))))...
+                +sum(abs( (mu2(1,iDual)-mu(1,iDual))./(mu(1,iDual)+1*(1e-5))));
+%         end
     end
     
     if totalDualChange < DualChangeThreshold
@@ -230,29 +231,35 @@ end % for iSub=1:TOTAL_SUB
     % 更新步长随着迭代次数的增加而减少，使得对偶变量的变化更加精细化，利于收敛
         
     % 如果最小速率和最大功率约束都满足，缩小步长
-    if isBelowMAX_POWER==1&&isAboveMIN_RATE==1
-        stepLambda_c1 = 1*(1e-1)/sqrt(timesIteration);%Lambda的更新步长
-        stepMU_c2 = 1*(1e-4)/sqrt(timesIteration);%Mu的更新步长
-        
-    % 如果迭代步长大于3000，进一步缩小步长
-    %   注：此时一般接近于收敛，所以直接把步长缩得更小
-    elseif timesIteration>3000
-        stepLambda_c1 = 1*(1e-2)/sqrt(timesIteration);%Lambda的更新步长
-        stepMU_c2 = 1*(1e-5)/sqrt(timesIteration);%Mu的更新步长
-        
-    % 如果以上约束都不满足，正常计算步长
-    else
-        stepLambda_c1 = 5*(1e-1)/sqrt(timesIteration);%Lambda的更新步长
-        stepMU_c2 = 1*(1e-3)/sqrt(timesIteration);%Mu的更新步长
-    end
+%     if isBelowMAX_POWER==1&&isAboveMIN_RATE==1
+%         stepLambda_c1 = 1*(1e-1)/sqrt(timesIteration);%Lambda的更新步长
+%         stepMU_c2 = 1*(1e-4)/sqrt(timesIteration);%Mu的更新步长
+%         
+%     % 如果迭代步长大于3000，进一步缩小步长
+%     %   注：此时一般接近于收敛，所以直接把步长缩得更小
+%     elseif timesIteration>3000
+%         stepLambda_c1 = 1*(1e-2)/sqrt(timesIteration);%Lambda的更新步长
+%         stepMU_c2 = 1*(1e-5)/sqrt(timesIteration);%Mu的更新步长
+%         
+%     % 如果以上约束都不满足，正常计算步长
+%     else
+%         stepLambda_c1 = 5*(1e-1)/sqrt(timesIteration);%Lambda的更新步长
+%         stepMU_c2 = 1*(1e-3)/sqrt(timesIteration);%Mu的更新步长
+%     end
     % ====================================================
     %       （5）变量更新
     % ====================================================
+    for iM=1:TOTAL_MULTIGROUP
+        if sum(scheduleSub_rho(:,iM))~=0
+            betaMN(iM,:) = betaM(iM)/sum(scheduleSub_rho(:,iM));
+        end
+    end
+    
     lambda = lambda2
     mu = mu2
-    timesIteration=timesIteration+1;
+    timesIteration=timesIteration+1
     isScheduleDone=isExceedIteration+isConverge;
     PTS=sum(powerSub_Pn(:))/MAX_POWER_Pth
     RTS=rateM/MIN_RATE_Rmin
-    
-end % while 大循环结束
+
+end
